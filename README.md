@@ -30,7 +30,7 @@
 
         `npx expo install react-dom react-native-web @expo/metro-runtime`
 
-        npx expo install react-native-chart-kit
+        `npx expo install react-native-chart-kit`
 
 -  **Remplacer le contenu de `App.js`**  
   Ouvrez `App.js` et remplacez par ce code , qui crée une page meteo statique avec des données fictives :
