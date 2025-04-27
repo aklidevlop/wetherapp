@@ -17,7 +17,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { Dimensions } from 'react-native';
 const screenWidth = Dimensions.get('window').width;
-const API_KEY = '1764b9c2364a214a315e7be920afe215';
+const API_KEY = 'your-api-key';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
 const Stack = createStackNavigator();
