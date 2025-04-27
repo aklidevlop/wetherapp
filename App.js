@@ -1,212 +1,279 @@
-import React from 'react';
-import { StyleSheet, Text, View, Image, ScrollView, Dimensions } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { createStackNavigator } from '@react-navigation/stack';
+import { NavigationContainer } from '@react-navigation/native';
+import { Dimensions } from 'react-native';
+const screenWidth = Dimensions.get('window').width;
+const API_KEY = '1764b9c2364a214a315e7be920afe215';
+const BASE_URL = 'https://api.openweathermap.org/data/2.5';
+
+const Stack = createStackNavigator();
 
 export default function App() {
-  // Static forecast data for different days
-  const forecastData = [
-    { day: 'Dim', icon: 'https://openweathermap.org/img/wn/01d@2x.png', temp: '22 C' },
-    { day: 'Lun', icon: 'https://openweathermap.org/img/wn/02d@2x.png', temp: '21 C' },
-    { day: 'Mar', icon: 'https://openweathermap.org/img/wn/03d@2x.png', temp: '18 C' },
-    { day: 'Mer', icon: 'https://openweathermap.org/img/wn/04d@2x.png', temp: '19 C' },
-    { day: 'Jeu', icon: 'https://openweathermap.org/img/wn/10d@2x.png', temp: '22 C' },
-  ];
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="WeatherScreen" component={WeatherScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
 
-  // Data for the temperature graph for the next 24 hours
-  const hourlyTemperatures = {
-    labels: ['0', '4', '8', '12', '16', '20', '24'],
-    datasets: [
-      {
-        data: [15, 17, 19, 22, 21, 17, 15],
-      },
-    ],
+function WeatherScreen() {
+  const [searchModalVisible, setSearchModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [weatherData, setWeatherData] = useState(null);
+  const [forecastData, setForecastData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchWeatherData('ouacif');
+  }, []);
+
+  const fetchWeatherData = async (location) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const weatherRes = await fetch(
+        `${BASE_URL}/weather?q=${location}&units=metric&appid=${API_KEY}`
+      );
+      const weatherJson = await weatherRes.json();
+      if (!weatherRes.ok) throw new Error(weatherJson.message);
+
+      const forecastRes = await fetch(
+        `${BASE_URL}/forecast?q=${location}&units=metric&appid=${API_KEY}`
+      );
+      const forecastJson = await forecastRes.json();
+      if (!forecastRes.ok) throw new Error(forecastJson.message);
+
+      setWeatherData({
+        temp: Math.round(weatherJson.main.temp),
+        condition: weatherJson.weather[0].main,
+        high: Math.round(weatherJson.main.temp_max),
+        low: Math.round(weatherJson.main.temp_min),
+        wind: Math.round(weatherJson.wind.speed * 3.6),
+        humidity: weatherJson.main.humidity,
+        icon: getWeatherIcon(weatherJson.weather[0].main),
+        location: weatherJson.name,
+        time: new Date().toLocaleString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' })
+      });
+
+      const daily = forecastJson.list.filter(i => i.dt_txt.includes('12:00:00')).slice(0, 7);
+      setForecastData(daily.map(i => ({
+        day: new Date(i.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' }),
+        icon: getWeatherIcon(i.weather[0].main),
+        temp: Math.round(i.main.temp)
+      })));
+    } catch (err) {
+      setError(err.message);
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const getWeatherIcon = cond => {
+    switch (cond.toLowerCase()) {
+      case 'clear': return 'weather-sunny';
+      case 'rain': return 'weather-pouring';
+      case 'clouds': return 'weather-cloudy';
+      case 'snow': return 'weather-snowy';
+      case 'thunderstorm': return 'weather-lightning';
+      default: return 'weather-partly-cloudy';
+    }
+  };
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      Alert.alert('Error', 'Please enter a location');
+      return;
+    }
+    fetchWeatherData(searchQuery.trim());
+    setSearchModalVisible(false);
+    setSearchQuery('');
+  };
+
+  if (loading && !weatherData) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#6E59A5" />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <Text style={styles.errorText}>Error: {error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchWeatherData('ouacif')}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.container}>
-        {/* Main Weather Info */}
-        <Text style={styles.city}>Tizi-Ouzou</Text>
-        <Image
-          style={styles.weatherIcon}
-          source={{ uri: 'https://openweathermap.org/img/wn/01d@2x.png' }}
-        />
-        <Text style={styles.temp}>22 C</Text>
-        <Text style={styles.description}>Sunny</Text>
-
-        {/* Additional Weather Details */}
-        <View style={styles.additionalInfo}>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Humidity</Text>
-            <Text style={styles.infoValue}>60%</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>Wind</Text>
-            <Text style={styles.infoValue}>5 mph</Text>
-          </View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <View style={styles.customHeader}>
+          <TouchableOpacity onPress={() => setSearchModalVisible(true)}>
+            <MaterialCommunityIcons name="magnify" size={24} color="#6E59A5" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Weather App</Text>
         </View>
 
-        {/* Temperature Graph for Next 24 Hours with Horizontal Scroll */}
-        <Text style={styles.graphTitle}>Next 24h Temperature</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-          <LineChart
-            data={hourlyTemperatures}
-            width={600} // fixed width to allow horizontal scrolling on small screens
-            height={220}
-            yAxisSuffix="°F"
-            chartConfig={{
-              backgroundColor: '#e0f7fa',
-              backgroundGradientFrom: '#e0f7fa',
-              backgroundGradientTo: '#e0f7fa',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(211, 47, 47, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 121, 107, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#d32f2f',
-              },
-            }}
-            bezier
-            style={styles.graph}
-          />
-        </ScrollView>
-
-        {/* Horizontal Forecast Section for Upcoming Days */}
-        <Text style={styles.forecastTitle}>Upcoming Days</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastContainer}>
-          {forecastData.map((item, index) => (
-            <View key={index} style={styles.forecastItem}>
-              <Text style={styles.forecastDay}>{item.day}</Text>
-              <Image style={styles.forecastIcon} source={{ uri: item.icon }} />
-              <Text style={styles.forecastTemp}>{item.temp}</Text>
+        {/* Search Modal */}
+        <Modal transparent visible={searchModalVisible} animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.searchModal}>
+              <TextInput style={styles.searchInput} placeholder="Enter city" value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={handleSearch} returnKeyType="search" />
+              <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+                <Text style={styles.searchButtonText}>Search</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-        </ScrollView>
+          </View>
+        </Modal>
 
-        {/* Footer with Date & Time */}
-        <View style={styles.footer}>
-          <Text style={styles.date}>Monday, May 5</Text>
-          <Text style={styles.time}>3:00 PM</Text>
+        {/* Location & Time */}
+        <View style={styles.header}>
+          <Text style={styles.location}>{weatherData.location}</Text>
+          <Text style={styles.time}>{weatherData.time}</Text>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Current Weather */}
+        <View style={styles.currentWeather}>
+          <MaterialCommunityIcons name={weatherData.icon} size={120} color="#9B87F5" />
+          <Text style={styles.temp}>{weatherData.temp}°</Text>
+          <Text style={styles.condition}>{weatherData.condition}</Text>
+          <Text style={styles.highLow}>H: {weatherData.high}° L: {weatherData.low}°</Text>
+        </View>
+
+        {/* Details */}
+        <View style={styles.detailsContainer}>
+          <View style={styles.detailItem}>
+            <MaterialCommunityIcons name="weather-windy" size={30} color="#6E59A5" />
+            <Text style={styles.detailText}>{weatherData.wind} km/h</Text>
+            <Text style={styles.detailLabel}>Wind</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <MaterialCommunityIcons name="water" size={30} color="#6E59A5" />
+            <Text style={styles.detailText}>{weatherData.humidity}%</Text>
+            <Text style={styles.detailLabel}>Humidity</Text>
+          </View>
+        </View>
+
+        {/* Forecast */}
+        {/* Forecast */}
+        <Text style={styles.sectionTitle}>7-Day Forecast</Text>
+<ScrollView 
+  horizontal 
+  showsHorizontalScrollIndicator={false}
+  contentContainerStyle={styles.forecastScrollContainer}
+>
+  {forecastData.map((day, i) => (
+    <View key={i} style={[styles.forecastCard, { width: screenWidth / 10 }]}>
+      <Text style={styles.forecastDay}>{day.day}</Text>
+      <MaterialCommunityIcons 
+        name={day.icon} 
+        size={32} 
+        color="#6E59A5" 
+        style={styles.forecastIcon}
+      />
+      <Text style={styles.forecastTemp}>{day.temp}°</Text>
+    </View>
+  ))}
+</ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    backgroundColor: '#e0f7fa',
-    paddingVertical: 20,
-    alignItems: 'center',
+  container: { flex: 1, backgroundColor: '#F1F0FB' },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  scrollView: { flex: 1 },
+  scrollViewContent: { flexGrow: 1, paddingBottom: 50 },
+  customHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, backgroundColor: '#E5DEFF' },
+  headerTitle: { marginLeft: 10, fontSize: 18, fontWeight: 'bold', color: '#6E59A5' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(110,89,165,0.5)', justifyContent: 'center', alignItems: 'center' },
+  searchModal: { width: '80%', backgroundColor: '#FFF', borderRadius: 8, padding: 15 },
+  searchInput: { borderWidth: 1, borderColor: '#DDD', borderRadius: 6, padding: 10, marginBottom: 10 },
+  searchButton: { backgroundColor: '#6E59A5', padding: 12, borderRadius: 6, alignItems: 'center' },
+  searchButtonText: { color: '#FFF', fontWeight: '600' },
+  header: { alignItems: 'center', padding: 20 },
+  location: { fontSize: 24, fontWeight: 'bold', color: '#6E59A5' },
+  time: { fontSize: 16, color: '#8E9196', marginTop: 5 },
+  currentWeather: { alignItems: 'center', marginVertical: 30 },
+  temp: { fontSize: 72, fontWeight: '200', color: '#6E59A5', marginTop: 10 },
+  condition: { fontSize: 24, color: '#8E9196', marginTop: 5 },
+  highLow: { fontSize: 18, color: '#8E9196', marginTop: 5 },
+  detailsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: 20, marginVertical: 30, backgroundColor: '#E5DEFF', borderRadius: 15, padding: 15 },
+  detailItem: { alignItems: 'center' },
+  detailText: { fontSize: 18, color: '#6E59A5', marginTop: 5 },
+  detailLabel: { fontSize: 14, color: '#8E9196', marginTop: 5 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#6E59A5', marginLeft: 20, marginBottom: 15 },
+  forecastScrollContainer: {
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+    height: 140,
+    alignItems: 'center'
   },
-  container: {
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  city: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#00796b',
-    marginVertical: 10,
-  },
-  weatherIcon: {
-    width: 120,
+  forecastCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 6,
     height: 120,
-  },
-  temp: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-    marginVertical: 5,
-  },
-  description: {
-    fontSize: 24,
-    color: '#616161',
-    marginBottom: 20,
-  },
-  additionalInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginVertical: 20,
-  },
-  infoBox: {
+    justifyContent: 'space-between',
     alignItems: 'center',
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: '#424242',
-  },
-  infoValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  graphTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 10,
-    color: '#00796b',
-  },
-  graph: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  forecastTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#00796b',
-    marginVertical: 10,
-  },
-  forecastContainer: {
-    marginVertical: 20,
-  },
-  forecastItem: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 10,
-    marginHorizontal: 5,
-    alignItems: 'center',
-    width: 100,  // fixed width
-    height: 140, // fixed height
-    justifyContent: 'center',
-    shadowColor: "#000",
+    elevation: 2,
+    shadowColor: '#6E59A5',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
   },
   forecastDay: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#00796b',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6E59A5',
+    textAlign: 'center'
   },
   forecastIcon: {
-    width: 50,
-    height: 50,
-    marginVertical: 5,
+    marginVertical: 6
   },
   forecastTemp: {
-    fontSize: 16,
-    color: '#d32f2f',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#6E59A5',
+    textAlign: 'center'
   },
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  date: {
-    fontSize: 16,
-    color: '#424242',
-  },
-  time: {
-    fontSize: 16,
-    color: '#424242',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#6E59A5',
+    marginLeft: 15,
+    marginBottom: 10,
+    marginTop: 20
   },
 });
