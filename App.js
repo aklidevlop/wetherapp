@@ -30,7 +30,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);          // Loading state to show spinner
   const [error, setError] = useState(null);              // Error message state
   const [current, setCurrent] = useState(null);          // Current weather data
-  const [dailyData, setDailyData] = useState([]);        // 7-day forecast data
+  const [dailyData, setDailyData] = useState([]);        // 5-day forecast data
   const [searchModalVisible, setSearchModalVisible] = useState(false); // Modal visibility
   const [searchQuery, setSearchQuery] = useState('');    // Search input value
 
