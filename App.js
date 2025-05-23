@@ -21,7 +21,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Constants for API access
-const API_KEY = '1764b9c2364a214a315e7be920afe215';  // Your OpenWeatherMap API key
+const API_KEY = 'your-api-key';  // Your OpenWeatherMap API key
 const BASE_URL = 'https://api.openweathermap.org/data/2.5'; // Base URL for weather APIs
 
 // Main App component
