@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const API_KEY = 'your-api-key';
+const API_KEY = '1764b9c2364a214a315e7be920afe215';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
 export default function App() {
